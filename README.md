@@ -1,4 +1,8 @@
-# <h1 align="center"> DappTools Template </h1>
+# <h1 align="center"> Project Broke </h1>
+
+Built in ETHGlobal 2021. A agreement for [superfluid](superfluid.finance) that allows someone to buy an item, e.g. NFT using a stream.
+
+## <h2 align="center"> Clone of Gakonst DappTools Template </h2>
 
 **Template repository for getting started quickly with DappTools**
 
