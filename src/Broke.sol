@@ -27,7 +27,7 @@ struct Agreement {
 contract Broke {
   ISuperfluid immutable internal host;
   IConstantFlowAgreementV1 immutable internal cfa;
-  mapping(bytes32 => Agreement) public agreements;
+  mapping(bytes32 => Agreement) private agreements;
 
   constructor(
     address _host,
@@ -37,6 +37,10 @@ contract Broke {
     require(_cfa != address(0), "cfa address neds to be defined");
     host = ISuperfluid(_host);
     cfa = IConstantFlowAgreementV1(_cfa);
+  }
+
+  function getAgreement(bytes32 id) external returns (Agreement memory) {
+    return agreements[id];
   }
 
   /// @notice creates a new agreement which a buyer can accept.
