@@ -11,12 +11,14 @@ struct Agreement {
   address buyer;
   address seller;
   // the address of the NFT the seller is selling.
-  address nft;
+  address nftAddress;
+  // the ID of the NFT.
+  uint tokenID;
   // the address of the SuperToken the seller accepts as payment.
   address acceptedToken;
   // the total price that the buyer has to pay
   uint price;
-  // the date at which the dept will be paid off
+  // the date at which the dept will be paid off in UNIX seconds.
   uint endDate;
   // the deposit the buyer has to lock in. Defined by the seller in wei.
   uint deposit;
@@ -40,6 +42,7 @@ contract Broke {
   /// @notice creates a new agreement which a buyer can accept.
   /// @dev verifies that the user actually owns the token they're trying to sell.
   /// @param _nftAddress the address of the NFT the seller is selling.
+  /// @param _tokenID the token ID of the NFT.
   /// @param _superfluidTokenAddress the token which the seller accepts as payment.
   /// @param _price the total price for which they want to sell it.
   /// @param _length the total length in seconds of the agreement.
@@ -48,6 +51,7 @@ contract Broke {
   /// TODO: use correct token type
   function createAgreement(
     address _nftAddress,
+    uint _tokenID,
     address _superfluidTokenAddress,
     uint _price,
     uint _length,
@@ -56,15 +60,17 @@ contract Broke {
     require(_superfluidTokenAddress != address(0), "superfluidTokenAddress has to be defined");
     require(_nftAddress != address(0), "nft has to be defined");
 
-    //IERC721 nft = IERC721(_nftAddress);
-    // TODO: what's the damn tokenID here?
-    //nft.approve(this, 1);
+    IERC721 nft = IERC721(_nftAddress);
+    // we approve the retrieval here and actually transfer if a buyer signs the agreement.
+    nft.approve(address(this), _tokenID);
 
+    // TODO: use safe math here!
     uint _endDate = block.timestamp + _length;
     Agreement memory agreement = Agreement({
       buyer: address(0),
       seller: msg.sender,
-      nft: _nftAddress,
+      nftAddress: _nftAddress,
+      tokenID: _tokenID,
       acceptedToken: _superfluidTokenAddress,
       price: _price,
       endDate: _endDate,
@@ -81,7 +87,11 @@ contract Broke {
   /// @param id the ID of the agreement they want to accept
   function acceptAgreement(bytes32 id) external payable {
     Agreement memory agreement = agreements[id];
+    IERC721 nft = IERC721(agreement.nftAddress);
+    require(address(this) == nft.getApproved(agreement.tokenID), "seller removed approval. Contract can't lock up sellers NFT!");
+
     require(msg.value == agreement.deposit, "have to send the exact deposit with the transaction");
+
     agreement.buyer = msg.sender;
   }
 
