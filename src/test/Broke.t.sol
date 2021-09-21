@@ -27,8 +27,6 @@ contract BrokeTest is DSTest {
     }
 
     function test_createAgreement() public {
-        uint256 length = 86400; // 1 day
-
         Agreement memory agreement = Agreement({
             buyer: address(0),
             seller: address(this),
@@ -36,7 +34,8 @@ contract BrokeTest is DSTest {
             tokenID: 1,
             acceptedToken: address(0x231),
             price: 1000000000000000000,
-            endDate: block.timestamp + length,
+            length: 86400, // 1 day
+            endDate: 0,
             deposit: 50000000
         });
 
@@ -45,7 +44,7 @@ contract BrokeTest is DSTest {
             agreement.tokenID,
             agreement.acceptedToken,
             agreement.price,
-            length,
+            agreement.length,
             agreement.deposit
         );
         Agreement memory got = broke.getAgreement(hash);
@@ -54,57 +53,27 @@ contract BrokeTest is DSTest {
     }
 
     function testFail_createAgreement_needNFTAddress() public {
-        uint256 length = 86400; // 1 day
-
-        Agreement memory agreement = Agreement({
-            buyer: address(0),
-            seller: address(this),
-            nftAddress: address(0),
-            tokenID: 1,
-            acceptedToken: address(0x231),
-            price: 1000000000000000000,
-            endDate: block.timestamp + length,
-            deposit: 50000000
-        });
-
         bytes32 hash = broke.createAgreement(
-            agreement.nftAddress,
-            agreement.tokenID,
-            agreement.acceptedToken,
-            agreement.price,
-            length,
-            agreement.deposit
+            address(0), // relevant part
+            1,
+            address(0x231),
+            1000000000,
+            86400,
+            6000000
         );
         Agreement memory got = broke.getAgreement(hash);
-
-        assertEq(agreement, got);
     }
 
     function testFail_createAgreement_needAcceptedTokenAddress() public {
-        uint256 length = 86400; // 1 day
-
-        Agreement memory agreement = Agreement({
-            buyer: address(0),
-            seller: address(this),
-            nftAddress: address(erc721Mock),
-            tokenID: 1,
-            acceptedToken: address(0),
-            price: 1000000000000000000,
-            endDate: block.timestamp + length,
-            deposit: 50000000
-        });
-
         bytes32 hash = broke.createAgreement(
-            agreement.nftAddress,
-            agreement.tokenID,
-            agreement.acceptedToken,
-            agreement.price,
-            length,
-            agreement.deposit
+            address(erc721Mock),
+            1,
+            address(0), // relevant part
+            1000000000,
+            86400,
+            6000000
         );
         Agreement memory got = broke.getAgreement(hash);
-
-        assertEq(agreement, got);
     }
 
     function assertEq(Agreement memory want, Agreement memory got) internal {
