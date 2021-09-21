@@ -18,6 +18,8 @@ struct Agreement {
   address acceptedToken;
   // the total price that the buyer has to pay
   uint price;
+  // the length of the agreement in UNIX seconds.
+  uint length;
   // the date at which the dept will be paid off in UNIX seconds.
   uint endDate;
   // the deposit the buyer has to lock in. Defined by the seller in wei.
@@ -68,8 +70,6 @@ contract Broke {
     // we approve the retrieval here and actually transfer if a buyer signs the agreement.
     nft.approve(address(this), _tokenID);
 
-    // TODO: use safe math here!
-    uint _endDate = block.timestamp + _length;
     Agreement memory agreement = Agreement({
       buyer: address(0),
       seller: msg.sender,
@@ -77,7 +77,8 @@ contract Broke {
       tokenID: _tokenID,
       acceptedToken: _superfluidTokenAddress,
       price: _price,
-      endDate: _endDate,
+      length: _length,
+      endDate: 0, // will be set properly when a buyer accepts the agreement
       deposit: _deposit
     });
     bytes32 agreementHash = keccak256(abi.encode(agreement));
@@ -93,10 +94,11 @@ contract Broke {
     Agreement memory agreement = agreements[id];
     IERC721 nft = IERC721(agreement.nftAddress);
     require(address(this) == nft.getApproved(agreement.tokenID), "seller removed approval. Contract can't lock up sellers NFT!");
-
     require(msg.value == agreement.deposit, "have to send the exact deposit with the transaction");
 
     agreement.buyer = msg.sender;
+    // TODO: use safe math
+    agreement.endDate = block.timestamp + agreement.length;
   }
 
   /// @notice Allows seller to retrieve the token if the buyer closed the stream to early
