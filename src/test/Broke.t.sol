@@ -21,8 +21,12 @@ contract BrokeTest is DSTest {
     ERC721Mock erc721Mock;
 
     function setUp() public {
-        // placeholder addresses
-        broke = new Broke(address(0x92), address(0x02));
+        // see https://docs.superfluid.finance/superfluid/networks/networks
+        // for contract addresses
+        broke = new Broke(
+            address(0xF2B4E81ba39F5215Db2e05B2F66f482BB8e87FD2),
+            address(0xaD2F1f7cd663f6a15742675f975CcBD42bb23a88)
+        );
         erc721Mock = new ERC721Mock();
     }
 
@@ -74,6 +78,20 @@ contract BrokeTest is DSTest {
             6000000
         );
         Agreement memory got = broke.getAgreement(hash);
+    }
+
+    function test_acceptAgreement() public {
+        bytes32 hash = broke.createAgreement(
+            address(erc721Mock),
+            1,
+            // fDAIx address on Ropsten Testnet
+            address(0xBF6201a6c48B56d8577eDD079b84716BB4918E8A),
+            100,
+            86400,
+            100
+        );
+
+        broke.acceptAgreement{value: 100}(hash);
     }
 
     function assertEq(Agreement memory want, Agreement memory got) internal {
