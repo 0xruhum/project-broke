@@ -36,9 +36,15 @@ contract Broke {
     address _cfa
   ) {
     require(_host != address(0), "host address needs to be defined");
-    require(_cfa != address(0), "cfa address neds to be defined");
+    require(_cfa != address(0), "cfa address needs to be defined");
     host = ISuperfluid(_host);
     cfa = IConstantFlowAgreementV1(_cfa);
+     uint256 configWord =
+            SuperAppDefinitions.APP_LEVEL_FINAL |
+            SuperAppDefinitions.BEFORE_AGREEMENT_CREATED_NOOP |
+            SuperAppDefinitions.BEFORE_AGREEMENT_UPDATED_NOOP |
+            SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
+    ISuperfluid(_host).registerApp(configWord);
   }
 
   function getAgreement(bytes32 id) external returns (Agreement memory) {
@@ -97,8 +103,44 @@ contract Broke {
     require(msg.value == agreement.deposit, "have to send the exact deposit with the transaction");
 
     agreement.buyer = msg.sender;
-    // TODO: use safe math
     agreement.endDate = block.timestamp + agreement.length;
+
+    // probably more gas efficient to pass the struct instead of the ID.
+    // Since, I would have to read from storage again then.
+    bool success = createStream(agreement);
+    require(success, "the stream has to be created successfully");
+    // below example returns flow data. E.g. 
+    // (uint256 ts, int96 flowRate, uint256 deposit, uint256 owedDeposit) = cfa.getFlow(
+    //  agreement.acceptedToken,
+    //  agreement.buyer,
+    //  agreement.seller
+    // );
+  }
+
+  /// @param agreement the agreement for which we create a stream.
+  /// @return the bytes32 identifier of the stream
+  function createStream(Agreement memory agreement) private returns (bool) {
+    // price / length => WEI per second multipled to get the 18 decimal value
+    // that superfluid expects.
+    uint256 flowRate = agreement.price / agreement.length * 1e18;
+    // we use delegatecall because we want to create the stream on behalf
+    // of the user.
+    // The second returned param doesn't seem to be useful. Was "0x" all the time.
+    (bool success,) = address(host).delegatecall(
+      abi.encodeWithSignature(
+        "callAgreement(ISuperAgreement, bytes, bytes)",
+        cfa,
+        abi.encodeWithSelector(
+          cfa.createFlow.selector,
+          agreement.acceptedToken,
+          agreement.seller,
+          flowRate,
+          new bytes(0)
+        ),
+        "0x"
+      )
+    );
+    return success;
   }
 
   /// @notice Allows seller to retrieve the token if the buyer closed the stream to early
