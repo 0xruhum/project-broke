@@ -25,8 +25,8 @@ struct Agreement {
   // the deposit the buyer has to lock in. Defined by the seller in wei.
   uint deposit;
 }
-
-contract Broke {
+import "ds-test/test.sol";
+contract Broke is DSTest {
   ISuperfluid immutable internal host;
   IConstantFlowAgreementV1 immutable internal cfa;
   mapping(bytes32 => Agreement) private agreements;
@@ -69,6 +69,7 @@ contract Broke {
     uint _length,
     uint _deposit
   ) external returns (bytes32) {
+    emit log_named_address("msg.sender", msg.sender);
     require(_superfluidTokenAddress != address(0), "superfluidTokenAddress has to be defined");
     require(_nftAddress != address(0), "nft has to be defined");
 
@@ -110,28 +111,21 @@ contract Broke {
 
     // probably more gas efficient to pass the struct instead of the ID.
     // Since, I would have to read from storage again then.
-    bool success = createStream(agreement);
-    require(success, "the stream has to be created successfully");
-    // below example returns flow data. E.g. 
-    // (uint256 ts, int96 flowRate, uint256 deposit, uint256 owedDeposit) = cfa.getFlow(
-    //  agreement.acceptedToken,
-    //  agreement.buyer,
-    //  agreement.seller
-    // );
+    createStream(agreement);
+    // verify that the stream was created
+    (uint256 ts,,,) = getFlow(id);
+    require(ts > 0, "failed to create the Superfluid stream");
   }
 
   /// @param agreement the agreement for which we create a stream.
-  /// @return the bytes32 identifier of the stream
-  function createStream(Agreement memory agreement) private returns (bool) {
+  function createStream(Agreement memory agreement) private {
     // price / length => WEI per second multipled to get the 18 decimal value
     // that superfluid expects.
-    uint256 flowRate = agreement.price / agreement.length * 1e18;
+    uint256 flowRate = agreement.price * 1e18 / agreement.length;
     // we use delegatecall because we want to create the stream on behalf
     // of the user.
     // The second returned param doesn't seem to be useful. Was "0x" all the time.
-    (bool success,) = address(host).delegatecall(
-      abi.encodeWithSignature(
-        "callAgreement(ISuperAgreement, bytes, bytes)",
+    host.callAgreement(
         cfa,
         abi.encodeWithSelector(
           cfa.createFlow.selector,
@@ -141,9 +135,7 @@ contract Broke {
           new bytes(0)
         ),
         "0x"
-      )
     );
-    return success;
   }
 
   /// @notice Allows seller to retrieve the token if the buyer closed the stream to early
@@ -168,8 +160,24 @@ contract Broke {
 
   /// @notice Allows the buyer to close the stream. Doesn't matter if the debt was paid off
   /// fully or not.
-  function closeStream(bytes32 id) public {
+  function closeStream(bytes32 id) external {
     Agreement memory agreement = agreements[id];
     require(msg.sender == agreement.buyer, "only buyer can close the stream");
+  }
+
+  /// @param id the agreement identifier
+  function getFlow(bytes32 id) public view returns 
+  (
+    uint256,
+    int96,
+    uint256,
+    uint256
+  ) {
+    Agreement memory agreement = agreements[id];
+    return cfa.getFlow(
+      ISuperfluidToken(agreement.acceptedToken),
+      agreement.buyer,
+      agreement.seller
+    );
   }
 }
