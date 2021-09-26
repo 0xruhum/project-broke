@@ -53,7 +53,7 @@ contract BrokeTest is DSTest {
         );
         Agreement memory got = broke.getAgreement(hash);
 
-        assertEq(agreement, got);
+        assertEq(got, agreement);
     }
 
     function testFail_createAgreement_needNFTAddress() public {
@@ -65,7 +65,7 @@ contract BrokeTest is DSTest {
             86400,
             6000000
         );
-        Agreement memory got = broke.getAgreement(hash);
+        broke.getAgreement(hash);
     }
 
     function testFail_createAgreement_needAcceptedTokenAddress() public {
@@ -77,10 +77,10 @@ contract BrokeTest is DSTest {
             86400,
             6000000
         );
-        Agreement memory got = broke.getAgreement(hash);
+        broke.getAgreement(hash);
     }
 
-    function test_acceptAgreement() public {
+    function test_acceptAgreement_createsStream() public {
         bytes32 hash = broke.createAgreement(
             address(erc721Mock),
             1,
@@ -90,8 +90,22 @@ contract BrokeTest is DSTest {
             86400,
             100
         );
-
         broke.acceptAgreement{value: 100}(hash);
+        (
+            uint256 ts,
+            int96 flowRate,
+            uint256 deposit,
+            uint256 owedDeposit
+        ) = broke.getFlow(hash);
+        assertEq(ts, block.timestamp);
+        assertEq(flowRate, 86400);
+        assertEq(deposit, 100);
+        assertEq(owedDeposit, 0);
+    }
+
+    function testFail_getFlow_invalidID() public {
+        // should fail if there is no agreemet with the passed ID.
+        broke.getFlow("0xnjkandjsndjwnadn");
     }
 
     function testFail_acceptAgremeent_alreadyAccepted() public {
@@ -104,7 +118,6 @@ contract BrokeTest is DSTest {
             86400,
             100
         );
-
         // put the first call in try catch so we can verify that
         // it's not the one failing. If it fails we catch and log it
         // The function doesn't revert so the test should fail becasue
@@ -120,7 +133,7 @@ contract BrokeTest is DSTest {
         broke.acceptAgreement{value: 100}(hash);
     }
 
-    function assertEq(Agreement memory want, Agreement memory got) internal {
+    function assertEq(Agreement memory got, Agreement memory want) internal {
         if (want.buyer != got.buyer) {
             emit log("Error: Agreement.buyer mismatch");
             emit log_named_address(" Expected", want.buyer);
