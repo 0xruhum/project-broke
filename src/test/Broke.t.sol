@@ -94,6 +94,32 @@ contract BrokeTest is DSTest {
         broke.acceptAgreement{value: 100}(hash);
     }
 
+    function testFail_acceptAgremeent_alreadyAccepted() public {
+        bytes32 hash = broke.createAgreement(
+            address(erc721Mock),
+            1,
+            // fDAIx address on Ropsten Testnet
+            address(0xBF6201a6c48B56d8577eDD079b84716BB4918E8A),
+            100,
+            86400,
+            100
+        );
+
+        // put the first call in try catch so we can verify that
+        // it's not the one failing. If it fails we catch and log it
+        // The function doesn't revert so the test should fail becasue
+        // we use testFail.
+        try broke.acceptAgreement{value: 100}(hash) {} catch Error(
+            string memory error
+        ) {
+            emit log("Error: first call to accept agreement failed");
+            return;
+        }
+        emit log_named_uint("end date", broke.getAgreement(hash).endDate);
+        // first one should be successful, this one not.
+        broke.acceptAgreement{value: 100}(hash);
+    }
+
     function assertEq(Agreement memory want, Agreement memory got) internal {
         if (want.buyer != got.buyer) {
             emit log("Error: Agreement.buyer mismatch");
