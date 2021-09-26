@@ -97,7 +97,10 @@ contract Broke {
   /// @dev verifies that the seller still owns the item
   /// @param id the ID of the agreement they want to accept
   function acceptAgreement(bytes32 id) external payable {
-    Agreement memory agreement = agreements[id];
+    Agreement storage agreement = agreements[id];
+    // endDate is only set in this function here. Meaning, if it's already set
+    // someone has sucessfully accepted the agreement
+    require(agreement.endDate <= 0, "agreement already accepted by somebody else!");
     IERC721 nft = IERC721(agreement.nftAddress);
     require(address(this) == nft.getApproved(agreement.tokenID), "seller removed approval. Contract can't lock up sellers NFT!");
     require(msg.value == agreement.deposit, "have to send the exact deposit with the transaction");
