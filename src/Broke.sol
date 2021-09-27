@@ -13,37 +13,34 @@ struct Agreement {
   // the address of the NFT the seller is selling.
   address nftAddress;
   // the ID of the NFT.
-  uint tokenID;
+  uint256 tokenID;
   // the address of the SuperToken the seller accepts as payment.
   address acceptedToken;
   // the total price that the buyer has to pay
-  uint price;
+  uint256 price;
   // the length of the agreement in UNIX seconds.
-  uint length;
+  uint256 length;
   // the date at which the dept will be paid off in UNIX seconds.
-  uint endDate;
+  uint256 endDate;
   // the deposit the buyer has to lock in. Defined by the seller in wei.
-  uint deposit;
+  uint256 deposit;
 }
-import "ds-test/test.sol";
-contract Broke is DSTest {
-  ISuperfluid immutable internal host;
-  IConstantFlowAgreementV1 immutable internal cfa;
+
+contract Broke {
+  ISuperfluid internal immutable host;
+  IConstantFlowAgreementV1 internal immutable cfa;
+  // key: hash of sender + receiver
   mapping(bytes32 => Agreement) private agreements;
 
-  constructor(
-    address _host,
-    address _cfa
-  ) {
+  constructor(address _host, address _cfa) {
     require(_host != address(0), "host address needs to be defined");
     require(_cfa != address(0), "cfa address needs to be defined");
     host = ISuperfluid(_host);
     cfa = IConstantFlowAgreementV1(_cfa);
-     uint256 configWord =
-            SuperAppDefinitions.APP_LEVEL_FINAL |
-            SuperAppDefinitions.BEFORE_AGREEMENT_CREATED_NOOP |
-            SuperAppDefinitions.BEFORE_AGREEMENT_UPDATED_NOOP |
-            SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
+    uint256 configWord = SuperAppDefinitions.APP_LEVEL_FINAL |
+      SuperAppDefinitions.BEFORE_AGREEMENT_CREATED_NOOP |
+      SuperAppDefinitions.BEFORE_AGREEMENT_UPDATED_NOOP |
+      SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
     ISuperfluid(_host).registerApp(configWord);
   }
 
@@ -63,19 +60,22 @@ contract Broke is DSTest {
   /// TODO: use correct token type
   function createAgreement(
     address _nftAddress,
-    uint _tokenID,
+    uint256 _tokenID,
     address _superfluidTokenAddress,
-    uint _price,
-    uint _length,
-    uint _deposit
+    uint256 _price,
+    uint256 _length,
+    uint256 _deposit
   ) external returns (bytes32) {
-    emit log_named_address("msg.sender", msg.sender);
-    require(_superfluidTokenAddress != address(0), "superfluidTokenAddress has to be defined");
+    require(
+      _superfluidTokenAddress != address(0),
+      "superfluidTokenAddress has to be defined"
+    );
     require(_nftAddress != address(0), "nft has to be defined");
-
     IERC721 nft = IERC721(_nftAddress);
-    // we approve the retrieval here and actually transfer if a buyer signs the agreement.
-    nft.approve(address(this), _tokenID);
+    require(
+      address(this) == nft.getApproved(_tokenID),
+      "seller didn't approve contract to transfer the token"
+    );
 
     Agreement memory agreement = Agreement({
       buyer: address(0),
@@ -98,44 +98,33 @@ contract Broke is DSTest {
   /// @dev verifies that the seller still owns the item
   /// @param id the ID of the agreement they want to accept
   function acceptAgreement(bytes32 id) external payable {
+    require(
+      isAgreementAcceptable(id),
+      "The agreement is not available anymore"
+    );
     Agreement storage agreement = agreements[id];
-    // endDate is only set in this function here. Meaning, if it's already set
-    // someone has sucessfully accepted the agreement
-    require(agreement.endDate <= 0, "agreement already accepted by somebody else!");
-    IERC721 nft = IERC721(agreement.nftAddress);
-    require(address(this) == nft.getApproved(agreement.tokenID), "seller removed approval. Contract can't lock up sellers NFT!");
-    require(msg.value == agreement.deposit, "have to send the exact deposit with the transaction");
+    // The Superfluid stream ID is the hash of the sender and the receiver
+    bytes32 streamID = keccak256(abi.encode(msg.sender, agreement.seller));
+    // verify that the buyer has started a stream with the correct flow data
+    (
+      uint256 ts,
+      int96 flowRate,
+      uint256 deposit,
+      uint256 owedDeposit
+    ) = getFlow(agreement.acceptedToken, agreement.buyer, agreement.seller);
+    int96 agreementFlowRate = agreement.price * 1e18 / agreement.length; 
+    require(agreementFlowRate == flowRate, "flow rate doesn't match");
+    require(
+      msg.value == agreement.deposit,
+      "have to send the exact deposit with the transaction"
+    );
 
     agreement.buyer = msg.sender;
-    agreement.endDate = block.timestamp + agreement.length;
-
-    // probably more gas efficient to pass the struct instead of the ID.
-    // Since, I would have to read from storage again then.
-    createStream(agreement);
-    // verify that the stream was created
-    (uint256 ts,,,) = getFlow(id);
-    require(ts > 0, "failed to create the Superfluid stream");
-  }
-
-  /// @param agreement the agreement for which we create a stream.
-  function createStream(Agreement memory agreement) private {
-    // price / length => WEI per second multipled to get the 18 decimal value
-    // that superfluid expects.
-    uint256 flowRate = agreement.price * 1e18 / agreement.length;
-    // we use delegatecall because we want to create the stream on behalf
-    // of the user.
-    // The second returned param doesn't seem to be useful. Was "0x" all the time.
-    host.callAgreement(
-        cfa,
-        abi.encodeWithSelector(
-          cfa.createFlow.selector,
-          agreement.acceptedToken,
-          agreement.seller,
-          flowRate,
-          new bytes(0)
-        ),
-        "0x"
-    );
+    // we use the flow ts since that is the time at which the flow was started
+    // and thus the endDate should be that + length.
+    // Using block.timestamp wouldn't work since the stream is started
+    // before the agreement is accepted. Thus, the buyer would overpay.
+    agreement.endDate = ts + agreement.length;
   }
 
   /// @notice Allows seller to retrieve the token if the buyer closed the stream to early
@@ -148,36 +137,68 @@ contract Broke is DSTest {
     // But, then we would have to still sepearte between seller and buyer
     // since both take a different path. Thus, using a modifier is gas waste here.
     Agreement memory agreement = agreements[id];
-    if (msg.sender == agreement.seller) {
-
-    } else if (msg.sender == agreement.buyer) {
-
+    if (msg.sender == agreement.seller) {} else if (
+      msg.sender == agreement.buyer
+    ) {
       // should automatically close the stream
     } else {
       revert("Caller has to be either buyer or seller");
     }
   }
 
-  /// @notice Allows the buyer to close the stream. Doesn't matter if the debt was paid off
-  /// fully or not.
-  function closeStream(bytes32 id) external {
+  /// @dev An agreement is acceptable if there is no buyer set and the
+  /// contract is approved to transfer the NFT from the seller.
+  /// @param id the ID of the agreement
+  /// @returns bool
+  function isAgreementAcceptable(bytes32 id) public view returns (bool) {
     Agreement memory agreement = agreements[id];
-    require(msg.sender == agreement.buyer, "only buyer can close the stream");
+    IERC721 nft = IERC721(agreement.nftAddress);
+    if (
+      agreement.buyer != address(0) ||
+      nft.getApproved(agreement.tokenID != address(this))
+    ) {
+      return false;
+    }
+    return true;
   }
 
-  /// @param id the agreement identifier
-  function getFlow(bytes32 id) public view returns 
-  (
-    uint256,
-    int96,
-    uint256,
-    uint256
-  ) {
-    Agreement memory agreement = agreements[id];
-    return cfa.getFlow(
-      ISuperfluidToken(agreement.acceptedToken),
-      agreement.buyer,
-      agreement.seller
-    );
+  /// @dev pass the agreement instead of the ID
+  /// so we don't have to read from storage again.
+  /// @param Agreement the agreement for which we get the flow data
+  /// @returns (uint256, int96, uint256, uint256) the flow data
+  function getFlow(
+    address token,
+    address buyer,
+    address seller
+  )
+    internal
+    view
+    returns (
+      uint256,
+      int96,
+      uint256,
+      uint256
+    )
+  {
+    return
+      cfa.getFlow(
+        ISuperfluidToken(token),
+        buyer,
+        seller
+      );
+  }
+
+  function hasCorrectAgreementData(
+    bytes32 agreementID,
+    address superToken,
+    int96 flowRate,
+    uint256 deposit
+  ) private view returns (bool) {
+    Agreement memory agreement = agreements[agreementID];
+    int96 agreementFlowRate = (agreement.price * 1e18) / agreement.length;
+    return
+      agreementFlowRate == flowRate &&
+      agremeent.acceptedToken == superToken &&
+      agreement.deposit == deposit;
   }
 }
