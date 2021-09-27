@@ -18,6 +18,8 @@
     "postpublish": "rimraf ./*.sol",
     "prepack": "yarn prepublishOnly",
     "postpack": "yarn postpublish",
-    "lint": "prettier --write src/**/*.sol"
+    "lint1": "prettier --write src/*.sol",
+    "lint2": "prettier --write src/**/*.sol",
+    "lint": "yarn run lint1 && yarn run lint2"
   }
 }
