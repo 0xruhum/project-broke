@@ -20,7 +20,7 @@ struct Agreement {
   uint256 price;
   // the length of the agreement in UNIX seconds.
   uint256 length;
-  // the date at which the dept will be paid off in UNIX seconds.
+  // the time at which the dept will be paid off in UNIX seconds.
   uint256 endDate;
   // the deposit the buyer has to lock in. Defined by the seller in wei.
   uint256 deposit;
@@ -112,8 +112,8 @@ contract Broke {
       uint256 deposit,
       uint256 owedDeposit
     ) = getFlow(agreement.acceptedToken, agreement.buyer, agreement.seller);
-    int96 agreementFlowRate = agreement.price * 1e18 / agreement.length; 
-    require(agreementFlowRate == flowRate, "flow rate doesn't match");
+    //int96 agreementFlowRate = (agreement.price * 1e18) / agreement.length;
+    //require(agreementFlowRate == flowRate, "flow rate doesn't match");
     require(
       msg.value == agreement.deposit,
       "have to send the exact deposit with the transaction"
@@ -149,13 +149,13 @@ contract Broke {
   /// @dev An agreement is acceptable if there is no buyer set and the
   /// contract is approved to transfer the NFT from the seller.
   /// @param id the ID of the agreement
-  /// @returns bool
+  /// @return bool
   function isAgreementAcceptable(bytes32 id) public view returns (bool) {
     Agreement memory agreement = agreements[id];
     IERC721 nft = IERC721(agreement.nftAddress);
     if (
       agreement.buyer != address(0) ||
-      nft.getApproved(agreement.tokenID != address(this))
+      nft.getApproved(agreement.tokenID) != address(this)
     ) {
       return false;
     }
@@ -164,8 +164,10 @@ contract Broke {
 
   /// @dev pass the agreement instead of the ID
   /// so we don't have to read from storage again.
-  /// @param Agreement the agreement for which we get the flow data
-  /// @returns (uint256, int96, uint256, uint256) the flow data
+  /// @param token the supertoken the agreement uses
+  /// @param buyer address of the buyer
+  /// @param seller address of the seller
+  /// @return (uint256, int96, uint256, uint256) the flow data
   function getFlow(
     address token,
     address buyer,
@@ -180,12 +182,7 @@ contract Broke {
       uint256
     )
   {
-    return
-      cfa.getFlow(
-        ISuperfluidToken(token),
-        buyer,
-        seller
-      );
+    return cfa.getFlow(ISuperfluidToken(token), buyer, seller);
   }
 
   function hasCorrectAgreementData(
@@ -195,10 +192,10 @@ contract Broke {
     uint256 deposit
   ) private view returns (bool) {
     Agreement memory agreement = agreements[agreementID];
-    int96 agreementFlowRate = (agreement.price * 1e18) / agreement.length;
+    //int96 agreementFlowRate = int96((agreement.price * 1e18) / agreement.length);
     return
-      agreementFlowRate == flowRate &&
-      agremeent.acceptedToken == superToken &&
+      //agreementFlowRate == flowRate &&
+      agreement.acceptedToken == superToken &&
       agreement.deposit == deposit;
   }
 }
