@@ -111,7 +111,7 @@ contract Broke {
     );
     Agreement storage agreement = agreements[id];
     // verify that the buyer has started a stream with the correct flow data
-    (uint256 ts, int96 flowRate, , , ) = getFlow(
+    (uint256 ts, int96 flowRate, , ) = getFlow(
       agreement.acceptedToken,
       msg.sender,
       agreement.seller
