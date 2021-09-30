@@ -84,6 +84,7 @@ contract BrokeTest is DSTest {
     bob = new User(broke, erc721Mock);
   }
 
+  // solhint-disable-next-line code-complexity
   function assertEq(Agreement memory got, Agreement memory want) internal {
     if (want.buyer != got.buyer) {
       emit log("Error: Agreement.buyer mismatch");
@@ -128,5 +129,6 @@ contract BrokeTest is DSTest {
     }
   }
 
+  // solhint-disable-next-line no-empty-blocks
   receive() external payable {}
 }
