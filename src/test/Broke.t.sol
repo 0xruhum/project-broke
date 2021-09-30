@@ -70,8 +70,11 @@ contract CreateAgreement is BrokeTest {
 contract GetFlow is BrokeTest {
   function test_shouldReturnFlowData() public {
     alice.createFlow(SuperDAIAddress, address(bob), 1);
-    (uint256 ts, int96 flowRate, uint256 deposit, uint256 owedDeposit) = broke
-      .getFlow(SuperDAIAddress, address(alice), address(bob));
+    (uint256 ts, int96 flowRate, , , ) = broke.getFlow(
+      SuperDAIAddress,
+      address(alice),
+      address(bob)
+    );
 
     // we don't specify the deposit here so we don't check for that.
     assertEq(ts, block.timestamp);

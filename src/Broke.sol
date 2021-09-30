@@ -110,15 +110,12 @@ contract Broke {
       "The agreement is not available anymore"
     );
     Agreement storage agreement = agreements[id];
-    // The Superfluid stream ID is the hash of the sender and the receiver
-    bytes32 streamID = keccak256(abi.encode(msg.sender, agreement.seller));
     // verify that the buyer has started a stream with the correct flow data
-    (
-      uint256 ts,
-      int96 flowRate,
-      uint256 deposit,
-      uint256 owedDeposit
-    ) = getFlow(agreement.acceptedToken, msg.sender, agreement.seller);
+    (uint256 ts, int96 flowRate, , , ) = getFlow(
+      agreement.acceptedToken,
+      msg.sender,
+      agreement.seller
+    );
     int96 agreementFlowRate = int96(agreement.price / agreement.length);
     require(agreementFlowRate == flowRate, "flow rate doesn't match");
     require(
