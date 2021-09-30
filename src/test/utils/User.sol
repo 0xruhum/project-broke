@@ -1,6 +1,8 @@
 // Contract to simulate a user since each user will have their own address
 pragma solidity ^0.8.0;
 import "ds-test/test.sol";
+import "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
+import "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/IConstantFlowAgreementV1.sol";
 
 import "./ERC721Mock.sol";
 import "../../Broke.sol";
@@ -8,9 +10,14 @@ import "../../Broke.sol";
 contract User {
   Broke internal broke;
   ERC721Mock internal erc721Mock;
+  ISuperfluid internal superfluid;
+  IConstantFlowAgreementV1 internal cfa;
+
   constructor(Broke _broke, ERC721Mock _erc721Mock) {
     broke = _broke;
     erc721Mock = _erc721Mock;
+    superfluid = ISuperfluid(0xF2B4E81ba39F5215Db2e05B2F66f482BB8e87FD2);
+    cfa = IConstantFlowAgreementV1(0xaD2F1f7cd663f6a15742675f975CcBD42bb23a88);
   }
 
   function approve(address to, uint256 tokenID) public {
@@ -21,18 +28,41 @@ contract User {
     address _nftAddress,
     uint256 _tokenID,
     address _superfluidTokenAddress,
-    uint256 _price,
-    uint256 _length,
+    uint96 _price,
+    uint96 _length,
     uint256 _deposit
   ) public returns (bytes32) {
-    return broke.createAgreement(
-      _nftAddress,
-      _tokenID,
-      _superfluidTokenAddress,
-      _price,
-      _length,
-      _deposit
+    return
+      broke.createAgreement(
+        _nftAddress,
+        _tokenID,
+        _superfluidTokenAddress,
+        _price,
+        _length,
+        _deposit
+      );
+  }
+
+  function createFlow(
+    address superToken,
+    address receiver,
+    int96 flowRate
+  ) public {
+    superfluid.callAgreement(
+      cfa,
+      abi.encodeWithSelector(
+        cfa.createFlow.selector,
+        superToken,
+        receiver,
+        flowRate,
+        new bytes(0)
+      ),
+      "0x"
     );
+  }
+
+  function acceptAgreement(bytes32 hash) public payable {
+    return broke.acceptAgreement{value: msg.value}(hash);
   }
 }
 
@@ -45,9 +75,10 @@ contract BrokeTest is DSTest {
 
   function setUp() public virtual {
     broke = new Broke(
-      address(0xF2B4E81ba39F5215Db2e05B2F66f482BB8e87FD2),
-      address(0xaD2F1f7cd663f6a15742675f975CcBD42bb23a88)
+      0xF2B4E81ba39F5215Db2e05B2F66f482BB8e87FD2,
+      0xaD2F1f7cd663f6a15742675f975CcBD42bb23a88
     );
+
     erc721Mock = new ERC721Mock();
     alice = new User(broke, erc721Mock);
     bob = new User(broke, erc721Mock);

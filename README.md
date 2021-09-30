@@ -2,6 +2,12 @@
 
 Built in ETHGlobal 2021. A agreement for [superfluid](superfluid.finance) that allows someone to buy an item, e.g. NFT using a stream.
 
+## Testing
+
+To run the tests, the Alice account needs SuperDAI. Alice's address: 0xEFc56627233b02eA95bAE7e19F648d7DcD5Bb132.
+If for whatever reason the address of Alice changes, simply log the address in the tests
+and send the DAI to that address :).
+
 ## <h2 align="center"> Clone of Gakonst DappTools Template </h2>
 
 **Template repository for getting started quickly with DappTools**

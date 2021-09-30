@@ -16,14 +16,20 @@ struct Agreement {
   uint256 tokenID;
   // the address of the SuperToken the seller accepts as payment.
   address acceptedToken;
-  // the total price that the buyer has to pay
-  uint256 price;
+  // the total price that the buyer has to pay.
+  // in uint96 because Suoerfluid uses int96 for the flowrate.
+  // Makes the conversion easier.
+  uint96 price;
   // the length of the agreement in UNIX seconds.
-  uint256 length;
-  // the time at which the dept will be paid off in UNIX seconds.
-  uint256 endDate;
+  // in uint96 because Suoerfluid uses int96 for the flowrate.
+  // Makes the conversion easier.
+  uint96 length;
   // the deposit the buyer has to lock in. Defined by the seller in wei.
   uint256 deposit;
+  // timestamp in UNIX at which the token is fully paid off by the buyer.
+  uint256 endDate;
+  // timestamp in UNIX of the creation by the seller.
+  uint256 createdAt;
 }
 
 contract Broke {
@@ -62,8 +68,8 @@ contract Broke {
     address _nftAddress,
     uint256 _tokenID,
     address _superfluidTokenAddress,
-    uint256 _price,
-    uint256 _length,
+    uint96 _price,
+    uint96 _length,
     uint256 _deposit
   ) external returns (bytes32) {
     require(
@@ -85,8 +91,9 @@ contract Broke {
       acceptedToken: _superfluidTokenAddress,
       price: _price,
       length: _length,
-      endDate: 0, // will be set properly when a buyer accepts the agreement
-      deposit: _deposit
+      deposit: _deposit,
+      createdAt: block.timestamp,
+      endDate: 0
     });
     bytes32 agreementHash = keccak256(abi.encode(agreement));
     agreements[agreementHash] = agreement;
@@ -111,9 +118,9 @@ contract Broke {
       int96 flowRate,
       uint256 deposit,
       uint256 owedDeposit
-    ) = getFlow(agreement.acceptedToken, agreement.buyer, agreement.seller);
-    //int96 agreementFlowRate = (agreement.price * 1e18) / agreement.length;
-    //require(agreementFlowRate == flowRate, "flow rate doesn't match");
+    ) = getFlow(agreement.acceptedToken, msg.sender, agreement.seller);
+    int96 agreementFlowRate = int96(agreement.price / agreement.length);
+    require(agreementFlowRate == flowRate, "flow rate doesn't match");
     require(
       msg.value == agreement.deposit,
       "have to send the exact deposit with the transaction"
@@ -173,7 +180,7 @@ contract Broke {
     address buyer,
     address seller
   )
-    internal
+    public
     view
     returns (
       uint256,
@@ -189,12 +196,12 @@ contract Broke {
     bytes32 agreementID,
     address superToken,
     int96 flowRate,
-    uint256 deposit
+    uint96 deposit
   ) private view returns (bool) {
     Agreement memory agreement = agreements[agreementID];
-    //int96 agreementFlowRate = int96((agreement.price * 1e18) / agreement.length);
+    int96 agreementFlowRate = int96(agreement.price / agreement.length);
     return
-      //agreementFlowRate == flowRate &&
+      agreementFlowRate == flowRate &&
       agreement.acceptedToken == superToken &&
       agreement.deposit == deposit;
   }
