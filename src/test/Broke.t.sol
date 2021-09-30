@@ -5,7 +5,6 @@ import "./utils/User.sol";
 address constant SuperDAIAddress = 0xBF6201a6c48B56d8577eDD079b84716BB4918E8A;
 
 contract CreateAgreement is BrokeTest {
-
   function testFail_needToApproveTokenFirst() public {
     alice.createAgreement(
       address(erc721Mock),
@@ -61,37 +60,60 @@ contract CreateAgreement is BrokeTest {
       price: 1000000000,
       length: 86400,
       deposit: 6000000,
+      createdAt: block.timestamp,
       endDate: 0
     });
     assertEq(got, want);
   }
-  
 }
 
 contract GetFlow is BrokeTest {
+  function test_shouldReturnFlowData() public {
+    alice.createFlow(SuperDAIAddress, address(bob), 1);
+    (uint256 ts, int96 flowRate, uint256 deposit, uint256 owedDeposit) = broke
+      .getFlow(SuperDAIAddress, address(alice), address(bob));
 
-  function testFail_getFlow_invalidID() public {
-    // should fail if there is no agreemet with the passed ID.
-    //broke.getFlow("0xnjkandjsndjwnadn");
+    // we don't specify the deposit here so we don't check for that.
+    assertEq(ts, block.timestamp);
+    assertEq(flowRate, 1);
   }
 }
 
 contract AcceptAgreement is BrokeTest {
-
-  function testFail_acceptAgremeent_alreadyAccepted() public {
-    bytes32 hash = broke.createAgreement(
+  function test_valid() public {
+    bob.approve(address(broke), 1);
+    uint96 price = 1 * 1e18;
+    uint96 length = 86400; // 1 day
+    bytes32 hash = bob.createAgreement(
       address(erc721Mock),
       1,
       SuperDAIAddress,
-      100,
-      86400,
+      price,
+      length,
       100
     );
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+  }
+
+  function testFail_alreadyAccepted() public {
+    bob.approve(address(broke), 1);
+    uint96 price = 1 * 1e18;
+    uint96 length = 86400; // 1 day
+    bytes32 hash = bob.createAgreement(
+      address(erc721Mock),
+      1,
+      SuperDAIAddress,
+      price,
+      length,
+      100
+    );
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
     // put the first call in try catch so we can verify that
     // it's not the one failing. If it fails we catch and log it
     // The function doesn't revert so the test should fail becasue
     // we use testFail.
-    try broke.acceptAgreement{value: 100}(hash) {} catch Error(
+    try alice.acceptAgreement{value: 100}(hash) {} catch Error(
       string memory error
     ) {
       emit log("Error: first call to accept agreement failed");
@@ -99,7 +121,6 @@ contract AcceptAgreement is BrokeTest {
     }
     emit log_named_uint("end date", broke.getAgreement(hash).endDate);
     // first one should be successful, this one not.
-    broke.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(hash);
   }
 }
-
