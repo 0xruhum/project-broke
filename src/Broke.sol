@@ -105,11 +105,11 @@ contract Broke {
   /// @dev verifies that the seller still owns the item
   /// @param id the ID of the agreement they want to accept
   function acceptAgreement(bytes32 id) external payable {
+    Agreement storage agreement = agreements[id];
     require(
-      isAgreementAcceptable(id),
+      isAgreementAcceptable(agreement),
       "The agreement is not available anymore"
     );
-    Agreement storage agreement = agreements[id];
     // verify that the buyer has started a stream with the correct flow data
     (uint256 ts, int96 flowRate, , ) = getFlow(
       agreement.acceptedToken,
@@ -129,6 +129,12 @@ contract Broke {
     // Using block.timestamp wouldn't work since the stream is started
     // before the agreement is accepted. Thus, the buyer would overpay.
     agreement.endDate = ts + agreement.length;
+    IERC721 nftContract = IERC721(agreement.nftAddress);
+    nftContract.safeTransferFrom(
+      agreement.seller,
+      address(this),
+      agreement.tokenID
+    );
   }
 
   /// @notice Allows seller to retrieve the token if the buyer closed the stream to early
@@ -141,21 +147,72 @@ contract Broke {
     // But, then we would have to still sepearte between seller and buyer
     // since both take a different path. Thus, using a modifier is gas waste here.
     Agreement memory agreement = agreements[id];
-    if (msg.sender == agreement.seller) {} else if (
-      msg.sender == agreement.buyer
-    ) {
+    if (msg.sender == agreement.seller) {
+      sellerRetrieveToken(agreement, id);
+    } else if (msg.sender == agreement.buyer) {
       // should automatically close the stream
     } else {
       revert("Caller has to be either buyer or seller");
     }
   }
 
+  function sellerRetrieveToken(Agreement memory agreement, bytes32 id) private {
+    // if the agreement wasn't accepted by anybody yet,
+    // the seller can simply take away the contract's approval
+    // to transfer the token from their wallet.
+
+    // We use a try catch in case the flow can not be retrieved from the
+    // Superfluid contract. If that's the case, we have no way to validate
+    // whether the buyer's flow is valid or even active.
+    // As a safety meachnism we simply allow the seller to retrieve their token
+    // in that case.
+    try
+      cfa.getFlow(
+        ISuperfluidToken(agreement.acceptedToken),
+        agreement.buyer,
+        agreement.seller
+      )
+    returns (uint256 ts, int96 flowRate, uint256 deposit, uint256 owedDeposit) {
+      int96 agreementFlowRate = int96(agreement.price / agreement.length);
+      // Here we check 3 cases:
+      //
+      // Was the flow rate tampered with?
+      // If the returned flowRate is not the samewe stored
+      // in the agreement, that's the case.
+      //
+      // Was the flow closed and restarted at another time?
+      // If that's the case, the ts of the flow and the agreement.length
+      // wouldn't add up to the endDate we specified in the agreement.
+      //
+      // Either of the above cases have to be true AND the block.timestamp
+      // has to be before the endDate we specified. That means, the
+      // buyer has to have tampered with the flow while the agreement is still
+      // active. If the endDate was reached the buyer can do with the flow whatever
+      // they want.
+      require(
+        (flowRate != agreementFlowRate ||
+          ts + agreement.length != agreement.endDate) &&
+          block.timestamp < agreement.endDate,
+        "The agreement is still valid and running. Cannot retrieve token"
+      );
+      sellerEndAgreement(agreement, id);
+    } catch {
+      // can not retrieve flow that should have been started when the
+      // agreement was accepted. Something seems to be wrong. So
+      // we allow the seller to retrieve their token
+      sellerEndAgreement(agreement, id);
+    }
+  }
+
   /// @dev An agreement is acceptable if there is no buyer set and the
   /// contract is approved to transfer the NFT from the seller.
-  /// @param id the ID of the agreement
+  /// @param agreement the agreement we check
   /// @return bool
-  function isAgreementAcceptable(bytes32 id) public view returns (bool) {
-    Agreement memory agreement = agreements[id];
+  function isAgreementAcceptable(Agreement memory agreement)
+    public
+    view
+    returns (bool)
+  {
     IERC721 nft = IERC721(agreement.nftAddress);
     if (
       agreement.buyer != address(0) ||
@@ -201,5 +258,15 @@ contract Broke {
       agreementFlowRate == flowRate &&
       agreement.acceptedToken == superToken &&
       agreement.deposit == deposit;
+  }
+
+  function sellerEndAgreement(Agreement memory agreement, bytes32 id) private {
+    IERC721 nftContract = IERC721(agreement.nftAddress);
+    nftContract.safeTransferFrom(
+      address(this),
+      agreement.seller,
+      agreement.tokenID
+    );
+    delete agreements[id];
   }
 }

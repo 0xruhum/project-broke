@@ -5,6 +5,7 @@ import "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/I
 import "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/IConstantFlowAgreementV1.sol";
 
 import "./ERC721Mock.sol";
+import "./Hevm.sol";
 import "../../Broke.sol";
 
 contract User {
@@ -61,12 +62,49 @@ contract User {
     );
   }
 
+  function updateFlow(
+    address superToken,
+    address receiver,
+    int96 flowRate
+  ) public {
+    superfluid.callAgreement(
+      cfa,
+      abi.encodeWithSelector(
+        cfa.updateFlow.selector,
+        superToken,
+        receiver,
+        flowRate,
+        new bytes(0)
+      ),
+      "0x"
+    );
+  }
+
+  function deleteFlow(address superToken, address receiver) public {
+    superfluid.callAgreement(
+      cfa,
+      abi.encodeWithSelector(
+        cfa.deleteFlow.selector,
+        superToken,
+        address(this),
+        receiver,
+        new bytes(0)
+      ),
+      "0x"
+    );
+  }
+
   function acceptAgreement(bytes32 hash) public payable {
     return broke.acceptAgreement{value: msg.value}(hash);
+  }
+
+  function retrieveToken(bytes32 hash) public {
+    return broke.retrieveToken(hash);
   }
 }
 
 contract BrokeTest is DSTest {
+  Hevm internal constant hevm = Hevm(HEVM_ADDRESS);
   Broke internal broke;
   ERC721Mock internal erc721Mock;
 
@@ -82,6 +120,8 @@ contract BrokeTest is DSTest {
     erc721Mock = new ERC721Mock();
     alice = new User(broke, erc721Mock);
     bob = new User(broke, erc721Mock);
+    // mint the token we will use for the tests laeer on
+    erc721Mock.mint(address(bob), 1);
   }
 
   // solhint-disable-next-line code-complexity
