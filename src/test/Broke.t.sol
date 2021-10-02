@@ -83,11 +83,15 @@ contract GetFlow is BrokeTest {
 }
 
 contract AcceptAgreement is BrokeTest {
-  function test_valid() public {
+  uint96 private price;
+  uint96 private length;
+  bytes32 private hash;
+
+  function setUpAgreement() private {
     bob.approve(address(broke), 1);
-    uint96 price = 1 * 1e18;
-    uint96 length = 86400; // 1 day
-    bytes32 hash = bob.createAgreement(
+    price = 1 * 1e18;
+    length = 86400; // 1 day
+    hash = bob.createAgreement(
       address(erc721Mock),
       1,
       SuperDAIAddress,
@@ -95,22 +99,16 @@ contract AcceptAgreement is BrokeTest {
       length,
       100
     );
+  }
+
+  function test_valid() public {
+    setUpAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
     alice.acceptAgreement{value: 100}(hash);
   }
 
   function testFail_alreadyAccepted() public {
-    bob.approve(address(broke), 1);
-    uint96 price = 1 * 1e18;
-    uint96 length = 86400; // 1 day
-    bytes32 hash = bob.createAgreement(
-      address(erc721Mock),
-      1,
-      SuperDAIAddress,
-      price,
-      length,
-      100
-    );
+    setUpAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
     // put the first call in try catch so we can verify that
     // it's not the one failing. If it fails we catch and log it
