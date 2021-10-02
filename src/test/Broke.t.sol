@@ -87,7 +87,7 @@ contract AcceptAgreement is BrokeTest {
   uint96 private length;
   bytes32 private hash;
 
-  function setUpAgreement() private {
+  function setupAgreement() private {
     bob.approve(address(broke), 1);
     price = 1 * 1e18;
     length = 86400; // 1 day
@@ -102,13 +102,13 @@ contract AcceptAgreement is BrokeTest {
   }
 
   function test_valid() public {
-    setUpAgreement();
+    setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
     alice.acceptAgreement{value: 100}(hash);
   }
 
   function testFail_alreadyAccepted() public {
-    setUpAgreement();
+    setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
     // put the first call in try catch so we can verify that
     // it's not the one failing. If it fails we catch and log it
@@ -123,5 +123,74 @@ contract AcceptAgreement is BrokeTest {
     emit log_named_uint("end date", broke.getAgreement(hash).endDate);
     // first one should be successful, this one not.
     alice.acceptAgreement{value: 100}(hash);
+  }
+}
+
+contract SellerRetrieveToken is BrokeTest {
+  uint96 private price;
+  uint96 private length;
+  bytes32 private hash;
+  uint256 private tokenID;
+
+  function setupAgreement() private {
+    bob.approve(address(broke), 1);
+    price = 1 * 1e18;
+    length = 86400; // 1 day
+    tokenID = 1;
+    hash = bob.createAgreement(
+      address(erc721Mock),
+      tokenID,
+      SuperDAIAddress,
+      price,
+      length,
+      100
+    );
+  }
+
+  function test_cannotGetFlowData() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+
+    // alice deletes the flow
+    alice.deleteFlow(SuperDAIAddress, address(bob));
+    bob.retrieveToken(hash);
+
+    assertEq(erc721Mock.ownerOf(tokenID), address(bob));
+  }
+
+  function test_flowDataChanged() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+
+    // alice deletes the flow
+    alice.updateFlow(SuperDAIAddress, address(bob), 1);
+    bob.retrieveToken(hash);
+
+    assertEq(erc721Mock.ownerOf(tokenID), address(bob));
+  }
+
+  function testFail_flowAndAgreementValid() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+
+    bob.retrieveToken(hash);
+    assertEq(erc721Mock.ownerOf(tokenID), address(broke));
+  }
+
+  function testFail_agreementOver() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+    // set block timestamp after the end date
+    hevm.warp(block.timestamp + length + 1);
+    // delete flow since it was paid off.
+    alice.deleteFlow(SuperDAIAddress, address(bob));
+
+    // bob shouldn't be able to retrieve his token.
+    bob.retrieveToken(hash);
+    assertEq(erc721Mock.ownerOf(tokenID), address(broke));
   }
 }
