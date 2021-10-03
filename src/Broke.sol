@@ -113,8 +113,8 @@ contract Broke {
       "The agreement is not available anymore"
     );
     // verify that the buyer has started a stream with the correct flow data
-    (uint256 ts, int96 flowRate, , ) = getFlow(
-      agreement.acceptedToken,
+    (uint256 ts, int96 flowRate, , ) = cfa.getFlow(
+      ISuperfluidToken(agreement.acceptedToken),
       msg.sender,
       agreement.seller
     );
@@ -235,16 +235,10 @@ contract Broke {
 
   /// @dev pass the agreement instead of the ID
   /// so we don't have to read from storage again.
-  /// @param token the supertoken the agreement uses
-  /// @param buyer address of the buyer
-  /// @param seller address of the seller
+  /// @param id the ID of the agreement
   /// @return (uint256, int96, uint256, uint256) the flow data
-  function getFlow(
-    address token,
-    address buyer,
-    address seller
-  )
-    public
+  function getFlow(bytes32 id)
+    external
     view
     returns (
       uint256,
@@ -253,7 +247,8 @@ contract Broke {
       uint256
     )
   {
-    return cfa.getFlow(ISuperfluidToken(token), buyer, seller);
+    Agreement memory a = agreements[id];
+    return cfa.getFlow(ISuperfluidToken(a.acceptedToken), a.buyer, a.seller);
   }
 
   function hasCorrectAgreementData(

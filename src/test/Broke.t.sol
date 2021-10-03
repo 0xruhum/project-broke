@@ -68,17 +68,33 @@ contract CreateAgreement is BrokeTest {
 }
 
 contract GetFlow is BrokeTest {
-  function test_shouldReturnFlowData() public {
-    alice.createFlow(SuperDAIAddress, address(bob), 1);
-    (uint256 ts, int96 flowRate, , ) = broke.getFlow(
+  uint96 private price;
+  uint96 private length;
+  bytes32 private hash;
+
+  function setupAgreement() private {
+    bob.approve(address(broke), 1);
+    price = 1 * 1e18;
+    length = 86400; // 1 day
+    hash = bob.createAgreement(
+      address(erc721Mock),
+      1,
       SuperDAIAddress,
-      address(alice),
-      address(bob)
+      price,
+      length,
+      100
     );
+  }
+
+  function test_shouldReturnFlowData() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+    (uint256 ts, int96 flowRate, , ) = broke.getFlow(hash);
 
     // we don't specify the deposit here so we don't check for that.
     assertEq(ts, block.timestamp);
-    assertEq(flowRate, 1);
+    assertEq(flowRate, int96(price / length));
   }
 }
 
