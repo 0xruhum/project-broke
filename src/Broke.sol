@@ -37,6 +37,7 @@ contract Broke {
   IConstantFlowAgreementV1 internal immutable cfa;
   // key: hash of sender + receiver
   mapping(bytes32 => Agreement) private agreements;
+  mapping(address => uint256) public pendingWithdrawals;
   Agreement[] public pastAgreements;
 
   constructor(address _host, address _cfa) {
@@ -274,9 +275,26 @@ contract Broke {
     address to,
     bytes32 id
   ) private {
+    // we delete the agreement from the mapping of currently active agreements.
+    // Thus, neither the buyer nor seller can call "retrieveToken()" twice.
+    // Otherwise, they could call it again and again and increase their
+    // pendingWithdrawal and therefore drain the contract.
+    delete agreements[id];
+    // keep track of all the past agreements.
+    pastAgreements.push(agreement);
+
     IERC721 nftContract = IERC721(agreement.nftAddress);
     nftContract.safeTransferFrom(address(this), to, agreement.tokenID);
-    pastAgreements.push(agreement);
-    delete agreements[id];
+
+    // allow withdrawing the deposit
+    pendingWithdrawals[to] += agreement.deposit;
+  }
+
+  function withdrawDeposit() public {
+    uint256 amount = pendingWithdrawals[msg.sender];
+    require(amount > 0, "sender has no pending withdrawal");
+
+    pendingWithdrawals[msg.sender] = 0;
+    payable(msg.sender).transfer(amount);
   }
 }

@@ -101,6 +101,13 @@ contract User {
   function retrieveToken(bytes32 hash) public {
     return broke.retrieveToken(hash);
   }
+
+  function withdrawDeposit() public {
+    return broke.withdrawDeposit();
+  }
+
+  // solhint-disable-next-line no-empty-blocks
+  receive() external payable {}
 }
 
 contract BrokeTest is DSTest {

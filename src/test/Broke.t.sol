@@ -170,6 +170,49 @@ contract SellerRetrieveToken is BrokeTest {
     assertEq(erc721Mock.ownerOf(tokenID), address(bob));
   }
 
+  function test_canWithdrawDeposit() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+
+    // alice deletes the flow
+    alice.updateFlow(SuperDAIAddress, address(bob), 1);
+    bob.retrieveToken(hash);
+
+    bob.withdrawDeposit();
+    assertEq(broke.pendingWithdrawals(address(bob)), 0);
+    assertEq(address(bob).balance, 100);
+  }
+
+  function testFail_cannotWithdrawTwice() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+
+    // alice deletes the flow
+    alice.updateFlow(SuperDAIAddress, address(bob), 1);
+    bob.retrieveToken(hash);
+
+    bob.withdrawDeposit();
+    assertEq(broke.pendingWithdrawals(address(bob)), 0);
+    assertEq(address(bob).balance, 100);
+
+    bob.withdrawDeposit();
+  }
+
+  function testFail_cannotRetrieveTwice() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+
+    // alice deletes the flow
+    alice.updateFlow(SuperDAIAddress, address(bob), 1);
+    bob.retrieveToken(hash);
+    assertEq(erc721Mock.ownerOf(tokenID), address(bob));
+
+    bob.retrieveToken(hash);
+  }
+
   function testFail_flowAndAgreementValid() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
@@ -234,5 +277,37 @@ contract BuyerRetrieveToken is BrokeTest {
 
     alice.retrieveToken(hash);
     assertEq(erc721Mock.ownerOf(tokenID), address(alice));
+  }
+
+  function test_canWithdrawDeposit() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+
+    // set block timestamp after the end date
+    hevm.warp(block.timestamp + length + 1);
+
+    alice.retrieveToken(hash);
+
+    alice.withdrawDeposit();
+    assertEq(broke.pendingWithdrawals(address(alice)), 0);
+    assertEq(address(alice).balance, 100);
+  }
+
+  function testFail_cannotWithdrawTwice() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+
+    // set block timestamp after the end date
+    hevm.warp(block.timestamp + length + 1);
+
+    alice.retrieveToken(hash);
+
+    alice.withdrawDeposit();
+    assertEq(broke.pendingWithdrawals(address(alice)), 0);
+    assertEq(address(alice).balance, 100);
+
+    alice.withdrawDeposit();
   }
 }
