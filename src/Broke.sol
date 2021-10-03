@@ -37,6 +37,7 @@ contract Broke {
   IConstantFlowAgreementV1 internal immutable cfa;
   // key: hash of sender + receiver
   mapping(bytes32 => Agreement) private agreements;
+  Agreement[] public pastAgreements;
 
   constructor(address _host, address _cfa) {
     require(_host != address(0), "host address needs to be defined");
@@ -150,9 +151,17 @@ contract Broke {
     if (msg.sender == agreement.seller) {
       sellerRetrieveToken(agreement, id);
     } else if (msg.sender == agreement.buyer) {
-      // should automatically close the stream
+      buyerRetrieveToken(agreement, id);
     } else {
       revert("Caller has to be either buyer or seller");
+    }
+  }
+
+  function buyerRetrieveToken(Agreement memory agreement, bytes32 id) private {
+    // the buyer can only retrieve the token if the block's timestamp is
+    // after the agreement's endDate
+    if (block.timestamp > agreement.endDate) {
+      endAgreement(agreement, agreement.buyer, id);
     }
   }
 
@@ -195,12 +204,12 @@ contract Broke {
           block.timestamp < agreement.endDate,
         "The agreement is still valid and running. Cannot retrieve token"
       );
-      sellerEndAgreement(agreement, id);
+      endAgreement(agreement, agreement.seller, id);
     } catch {
       // can not retrieve flow that should have been started when the
       // agreement was accepted. Something seems to be wrong. So
       // we allow the seller to retrieve their token
-      sellerEndAgreement(agreement, id);
+      endAgreement(agreement, agreement.seller, id);
     }
   }
 
@@ -260,13 +269,14 @@ contract Broke {
       agreement.deposit == deposit;
   }
 
-  function sellerEndAgreement(Agreement memory agreement, bytes32 id) private {
+  function endAgreement(
+    Agreement memory agreement,
+    address to,
+    bytes32 id
+  ) private {
     IERC721 nftContract = IERC721(agreement.nftAddress);
-    nftContract.safeTransferFrom(
-      address(this),
-      agreement.seller,
-      agreement.tokenID
-    );
+    nftContract.safeTransferFrom(address(this), to, agreement.tokenID);
+    pastAgreements.push(agreement);
     delete agreements[id];
   }
 }

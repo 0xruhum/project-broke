@@ -120,7 +120,6 @@ contract AcceptAgreement is BrokeTest {
       emit log("Error: first call to accept agreement failed");
       return;
     }
-    emit log_named_uint("end date", broke.getAgreement(hash).endDate);
     // first one should be successful, this one not.
     alice.acceptAgreement{value: 100}(hash);
   }
@@ -192,5 +191,48 @@ contract SellerRetrieveToken is BrokeTest {
     // bob shouldn't be able to retrieve his token.
     bob.retrieveToken(hash);
     assertEq(erc721Mock.ownerOf(tokenID), address(broke));
+  }
+}
+
+contract BuyerRetrieveToken is BrokeTest {
+  uint96 private price;
+  uint96 private length;
+  bytes32 private hash;
+  uint256 private tokenID;
+
+  function setupAgreement() private {
+    bob.approve(address(broke), 1);
+    price = 1 * 1e18;
+    length = 86400; // 1 day
+    tokenID = 1;
+    hash = bob.createAgreement(
+      address(erc721Mock),
+      tokenID,
+      SuperDAIAddress,
+      price,
+      length,
+      100
+    );
+  }
+
+  function test_blockAfterEndDate() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+
+    // set block timestamp after the end date
+    hevm.warp(block.timestamp + length + 1);
+
+    alice.retrieveToken(hash);
+    assertEq(erc721Mock.ownerOf(tokenID), address(alice));
+  }
+
+  function testFail_cannotRetrieveBeforeEndDate() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+
+    alice.retrieveToken(hash);
+    assertEq(erc721Mock.ownerOf(tokenID), address(alice));
   }
 }
