@@ -28,12 +28,24 @@ contract CreateAgreement is BrokeTest {
     );
   }
 
-  function testFail_needAcceptedTokenAddress() public {
+  function testFail_acceptedTokenCannotBeNull() public {
     alice.approve(address(this), 1);
     alice.createAgreement(
       address(erc721Mock),
       1,
       address(0), // relevant part
+      1000000000,
+      86400,
+      6000000
+    );
+  }
+
+  function testFail_acceptedTokenHasToBeSuperToken() public {
+    alice.approve(address(this), 1);
+    alice.createAgreement(
+      address(erc721Mock),
+      1,
+      0xbe49ac1EadAc65dccf204D4Df81d650B50122aB2, // relevant part
       1000000000,
       86400,
       6000000

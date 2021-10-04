@@ -119,9 +119,17 @@ contract BrokeTest is DSTest {
   User internal bob;
 
   function setUp() public virtual {
+    // see https://docs.superfluid.finance/superfluid/networks/networks
+    address[] memory validSuperTokens = new address[](4);
+    // initializing dynamic arrays:
+    // https://docs.soliditylang.org/en/latest/types.html#array-literals
+    validSuperTokens[0] = 0xBF6201a6c48B56d8577eDD079b84716BB4918E8A;
+    validSuperTokens[1] = 0x2dC36872a445adF0bFf63cc0eeee52A2b801625f;
+    validSuperTokens[2] = 0xC5191A51982983B8105eC4Fbbbf35b9466EE0179;
+    validSuperTokens[3] = 0x6fC99F5591b51583ba15A8C2572408257A1D2797;
     broke = new Broke(
-      0xF2B4E81ba39F5215Db2e05B2F66f482BB8e87FD2,
-      0xaD2F1f7cd663f6a15742675f975CcBD42bb23a88
+      0xaD2F1f7cd663f6a15742675f975CcBD42bb23a88,
+      validSuperTokens
     );
 
     erc721Mock = new ERC721Mock();
