@@ -174,13 +174,26 @@ contract SellerRetrieveToken is BrokeTest {
     assertEq(erc721Mock.ownerOf(tokenID), address(bob));
   }
 
-  function test_flowDataChanged() public {
+  function test_flowRateChanged() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
     alice.acceptAgreement{value: 100}(hash);
 
-    // alice deletes the flow
+    // buyer updates flowRate in the middle of the agreement
     alice.updateFlow(SuperDAIAddress, address(bob), 1);
+    bob.retrieveToken(hash);
+
+    assertEq(erc721Mock.ownerOf(tokenID), address(bob));
+  }
+
+  function test_flowTimestampDoesNotMatch() public {
+    setupAgreement();
+    alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
+    alice.acceptAgreement{value: 100}(hash);
+
+    // buyer modifies the initial flow in any way => timestamp shouldn't match
+    hevm.warp(block.timestamp + 1);
+    alice.updateFlow(SuperDAIAddress, address(bob), int96(price / length));
     bob.retrieveToken(hash);
 
     assertEq(erc721Mock.ownerOf(tokenID), address(bob));
