@@ -33,23 +33,17 @@ struct Agreement {
 }
 
 contract Broke {
-  ISuperfluid internal immutable host;
   IConstantFlowAgreementV1 internal immutable cfa;
+  address[] internal validSuperTokens;
   // key: hash of sender + receiver
   mapping(bytes32 => Agreement) private agreements;
   mapping(address => uint256) public pendingWithdrawals;
   Agreement[] public pastAgreements;
 
-  constructor(address _host, address _cfa) {
-    require(_host != address(0), "host address needs to be defined");
+  constructor(address _cfa, address[] memory _validSuperTokens) {
     require(_cfa != address(0), "cfa address needs to be defined");
-    host = ISuperfluid(_host);
     cfa = IConstantFlowAgreementV1(_cfa);
-    uint256 configWord = SuperAppDefinitions.APP_LEVEL_FINAL |
-      SuperAppDefinitions.BEFORE_AGREEMENT_CREATED_NOOP |
-      SuperAppDefinitions.BEFORE_AGREEMENT_UPDATED_NOOP |
-      SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
-    ISuperfluid(_host).registerApp(configWord);
+    validSuperTokens = _validSuperTokens;
   }
 
   function getAgreement(bytes32 id) external returns (Agreement memory) {
@@ -75,8 +69,8 @@ contract Broke {
     uint256 _deposit
   ) external returns (bytes32) {
     require(
-      _superfluidTokenAddress != address(0),
-      "superfluidTokenAddress has to be defined"
+      isSuperTokenAddress(_superfluidTokenAddress),
+      "superfluidTokenAddress is not a valid super token address"
     );
     require(_nftAddress != address(0), "nft has to be defined");
     IERC721 nft = IERC721(_nftAddress);
@@ -291,5 +285,12 @@ contract Broke {
 
     pendingWithdrawals[msg.sender] = 0;
     payable(msg.sender).transfer(amount);
+  }
+
+  function isSuperTokenAddress(address token) internal view returns (bool) {
+    for (uint256 i = 0; i < validSuperTokens.length; i++) {
+      if (validSuperTokens[i] == token) return true;
+    }
+    return false;
   }
 }
