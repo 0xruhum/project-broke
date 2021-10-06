@@ -1,4 +1,4 @@
-// Contract to simulate a user since each user will have their own address
+// SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 import "ds-test/test.sol";
 import "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
@@ -8,6 +8,7 @@ import "./ERC721Mock.sol";
 import "./Hevm.sol";
 import "../../Broke.sol";
 
+// Contract to simulate a user since each user will have their own address
 contract User {
   Broke internal broke;
   ERC721Mock internal erc721Mock;
