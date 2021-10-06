@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
 // EXTERNAL IMPORTS
@@ -46,7 +46,7 @@ contract Broke {
     validSuperTokens = _validSuperTokens;
   }
 
-  function getAgreement(bytes32 id) external returns (Agreement memory) {
+  function getAgreement(bytes32 id) external view returns (Agreement memory) {
     return agreements[id];
   }
 
@@ -176,7 +176,7 @@ contract Broke {
         agreement.buyer,
         agreement.seller
       )
-    returns (uint256 ts, int96 flowRate, uint256 deposit, uint256 owedDeposit) {
+    returns (uint256 ts, int96 flowRate, uint256, uint256) {
       int96 agreementFlowRate = int96(agreement.price / agreement.length);
       // Here we check 3 cases:
       //

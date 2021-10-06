@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
 import "./utils/User.sol";
@@ -143,7 +144,7 @@ contract AcceptAgreement is BrokeTest {
     // The function doesn't revert so the test should fail becasue
     // we use testFail.
     try alice.acceptAgreement{value: 100}(hash) {} catch Error(
-      string memory error
+      string memory
     ) {
       emit log("Error: first call to accept agreement failed");
       return;
