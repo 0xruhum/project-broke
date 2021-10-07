@@ -1,25 +1,118 @@
 # <h1 align="center"> Project Broke </h1>
 
-Built in ETHGlobal 2021. A agreement for [superfluid](superfluid.finance) that allows someone to buy an item, e.g. NFT using a stream.
+Broke is a contract that allows buying NFTs from a seller by paying off the
+price over a set period of time instead of upfront using Superfluid streams.
 
-## Testing
+To ensure economic incentive for the buyer to not tinker with the flow
+in the middle of the agreement or do any other stupid shit they have to send
+a deposit when starting an agreement. If the agreement is successful the buyer
+is able to withdraw their deposit from the contract. Else, the seller is rewarded
+the deposit.
 
-To run the tests, the Alice account needs SuperDAI. Alice's address: 0xEFc56627233b02eA95bAE7e19F648d7DcD5Bb132.
+The basic scenario is:
+
+1. Seller aproves `Broke` to retrieve the token from their wallet.
+2. Seller creates an agreement using `Broke` and receives the ID of the agreement.
+3. Seller shares the ID with potential buyers.
+4. Buyer creates a Superfluid stream to the seller's wallet with the flow rate
+specified in the agreement.
+5. Buyer calls `Broke` to accept the agreement and sends the deposit.
+6. `Broke` retrieves NFT from seller.
+7. After the token was paid off buyer ends Superfluid stream.
+8. Buyer withdraws NFT and deposit from the contract.
+
+Built for ETHGlobal 2021.
+
+## API
+
+The project consists of a single contract named `Broke`.
+It is used to create and accept agreements as well as retrieve tokens/funds.
+
+### Create an Agreement 
+
+When a user wants to sell their NFT token through the Broke contract, they
+have to first grant the contract permission to transfer the token from their wallet.
+After that, they call the `createAgreement()` function with the following parameters:
+
+| Type | Description |
+| ---- | ----------- |
+| address | address of the contract the NFT was orginally minted from |
+| uint256 | the ID of the NFT you want to sell |
+| address | address of the Superfluid Token you accept as payment. See https://docs.superfluid.finance/superfluid/networks/networks |
+| uint96 | the total price you want to sell the token for in wei |
+| uint96 | the length of the agreement in seconds, e.g. 86400 = 1 day |
+| uint256 | the deposit in wei you expect from the buyer |
+
+The price divided by the length determines the flow rate of the Superfluid
+stream the buyer has to start to accept the agreement.
+
+### Accept an Agreement
+
+To be able to accept an agreement you have to first start a Superfluid flow to
+the seller's wallet. The flowrate has to be equal to the one specified by
+the seller.
+
+After that you can call the `acceptAgreement(bytes32)` function which is payable.
+You have to send the deposit the seller specified.
+The function accepts the agreement ID to be parsed as the first parameter.
+
+After the agreement was accepted you're supposed to not modify the Superfluid stream
+until the endDate is reached. Else, the seller is able to end the agreement
+take their token as well as your deposit.
+
+### Retrieving the Token
+
+Call `retrieveToken(bytes32 agreementID)` to withdraw the NFT from the contract.
+
+Seller and buyer have different scenarios in which they are elible to withdraw.
+
+If they withdrawed the NFT, they are also eligble to withdraw the deposit associated
+with the agreement. Simply call `withdraw()` for that.
+
+#### Buyer
+
+As a buyer you're eligble to retrieve the token if the following condition is true:
+
+```
+block.timestamp > blockAtWhichAgreementWasAccepted.timestamp + agreement.length
+```
+
+#### Seller
+
+As a seller you're only able to withdraw the token after an agreement was created
+if one of the following scenarios occur:
+
+- buyer runs out of funds in the middle of the agreement
+- buyer ends the stream early
+- buyer modifies the flowrate while the agreement is still active
+
+## Dev 
+
+To get started run the following commands:
+
+```
+make
+make install
+```
+
+To build the contracts run:
+
+```
+make build
+```
+
+The test suite needs to access the ropsten network. For that, we have to specify
+RPC url. We use alchemy for which you have to provide an API key in the env file.
+
+The tests, also need an account with SuperDAI. In the testsuite that account is named `alice`.
+Alice's address: 0xEFc56627233b02eA95bAE7e19F648d7DcD5Bb132.
+
 If for whatever reason the address of Alice changes, simply log the address in the tests
 and send the DAI to that address :).
 
-## <h2 align="center"> Clone of Gakonst DappTools Template </h2>
+After that run:
 
-**Template repository for getting started quickly with DappTools**
-
-![Github Actions](https://github.com/gakonst/dapptools-template/workflows/Tests/badge.svg)
-
-## Building and testing
-
-```sh
-git clone https://github.com/gakonst/dapptools-template
-cd dapptools-template
-make
+```
 make test
 ```
 
@@ -69,6 +162,11 @@ dapp testnet
 # get the printed account address from the testnet, and set it as ETH_FROM. Then:
 make deploy
 ```
+
+### Verifying
+
+Set the Etherscan API key env variable and run
+`make network_name=<mainnet|ropsten|...> contract_address=<address> verify`
 
 ## Installing the toolkit
 
