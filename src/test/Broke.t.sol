@@ -143,9 +143,7 @@ contract AcceptAgreement is BrokeTest {
     // it's not the one failing. If it fails we catch and log it
     // The function doesn't revert so the test should fail becasue
     // we use testFail.
-    try alice.acceptAgreement{value: 100}(hash) {} catch Error(
-      string memory
-    ) {
+    try alice.acceptAgreement{value: 100}(hash) {} catch Error(string memory) {
       emit log("Error: first call to accept agreement failed");
       return;
     }
