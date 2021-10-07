@@ -91,7 +91,9 @@ contract Broke {
       createdAt: block.timestamp,
       endDate: 0
     });
-    bytes32 agreementHash = keccak256(abi.encode(agreement));
+    bytes32 agreementHash = keccak256(
+      abi.encode(agreement.seller, agreement.nftAddress, agreement.tokenID)
+    );
     agreements[agreementHash] = agreement;
     return agreementHash;
   }
