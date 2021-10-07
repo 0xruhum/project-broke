@@ -34,6 +34,12 @@ deploy-mainnet: check-api-key deploy
 deploy-rinkeby: export ETH_RPC_URL = $(call network,rinkeby)
 deploy-rinkeby: check-api-key deploy
 
+# ropsten 
+deploy-ropsten: export ETH_RPC_URL = $(call network,ropsten)
+deploy-ropsten: check-api-key deploy
+
+verify:; ETH_RPC_URL=$(call network,$(network_name)) scripts/verify.sh $(contract_address)
+
 check-api-key:
 ifndef ALCHEMY_API_KEY
 	$(error ALCHEMY_API_KEY is undefined)
@@ -43,5 +49,5 @@ endif
 # Requires the ALCHEMY_API_KEY env var to be set.
 # The first argument determines the network (mainnet / rinkeby / ropsten / kovan / goerli)
 define network
-	https://eth-$1.alchemyapi.io/v2/${ALCHEMY_API_KEY}
+https://eth-$1.alchemyapi.io/v2/${ALCHEMY_API_KEY}
 endef
