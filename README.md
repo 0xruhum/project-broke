@@ -52,6 +52,21 @@ To be able to accept an agreement you have to first start a Superfluid flow to
 the seller's wallet. The flowrate has to be equal to the one specified by
 the seller.
 
+Broke expects all the values to be in WEI while Superfluid seems to use Ether.
+Here's an example on how to figure out the correct flow rate:
+
+```
+# specified by seller
+price = 1000 WEI
+length = 300 # 5 minutes
+flowrate = 1000 / 1e18 / 300 # per second
+
+# When creating the flow on Superfluid dashboard, you have to multiple the flowrate
+# above with unit you select on Superfluid, e.g. hour, day, month
+# if you select hour for example it's:
+superfluid = flowrate * 60**2
+```
+
 After that you can call the `acceptAgreement(bytes32)` function which is payable.
 You have to send the deposit the seller specified.
 The function accepts the agreement ID to be parsed as the first parameter.
