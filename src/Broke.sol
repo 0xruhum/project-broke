@@ -105,7 +105,7 @@ contract Broke {
   function acceptAgreement(bytes32 id) external payable {
     Agreement storage agreement = agreements[id];
     require(
-      isAgreementAcceptable(agreement),
+      isAgreementAcceptable(id),
       "The agreement is not available anymore"
     );
     // verify that the buyer has started a stream with the correct flow data
@@ -212,13 +212,10 @@ contract Broke {
 
   /// @dev An agreement is acceptable if there is no buyer set and the
   /// contract is approved to transfer the NFT from the seller.
-  /// @param agreement the agreement we check
+  /// @param id the agreement we check
   /// @return bool
-  function isAgreementAcceptable(Agreement memory agreement)
-    public
-    view
-    returns (bool)
-  {
+  function isAgreementAcceptable(bytes32 id) public view returns (bool) {
+    Agreement memory agreement = agreements[id];
     IERC721 nft = IERC721(agreement.nftAddress);
     if (
       agreement.buyer != address(0) ||
