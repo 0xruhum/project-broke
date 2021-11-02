@@ -7,15 +7,14 @@ import "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/I
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 struct Agreement {
-  // TODO: those fields have to be immutable
-  address buyer;
-  address seller;
-  // the address of the NFT the seller is selling.
-  address nftAddress;
   // the ID of the NFT.
   uint256 tokenID;
-  // the address of the SuperToken the seller accepts as payment.
-  address acceptedToken;
+  // the deposit the buyer has to lock in. Defined by the seller in wei.
+  uint256 deposit;
+  // timestamp in UNIX at which the token is fully paid off by the buyer.
+  uint256 endDate;
+  // timestamp in UNIX of the creation by the seller.
+  uint256 createdAt;
   // the total price that the buyer has to pay.
   // in uint96 because Suoerfluid uses int96 for the flowrate.
   // Makes the conversion easier.
@@ -24,12 +23,12 @@ struct Agreement {
   // in uint96 because Suoerfluid uses int96 for the flowrate.
   // Makes the conversion easier.
   uint96 length;
-  // the deposit the buyer has to lock in. Defined by the seller in wei.
-  uint256 deposit;
-  // timestamp in UNIX at which the token is fully paid off by the buyer.
-  uint256 endDate;
-  // timestamp in UNIX of the creation by the seller.
-  uint256 createdAt;
+  address buyer;
+  address seller;
+  // the address of the NFT the seller is selling.
+  address nftAddress;
+  // the address of the SuperToken the seller accepts as payment.
+  address acceptedToken;
 }
 
 contract Broke {
