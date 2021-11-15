@@ -35,7 +35,8 @@ contract Broke {
   IConstantFlowAgreementV1 internal immutable cfa;
   address[] internal validSuperTokens;
   // key: hash of sender + receiver
-  mapping(bytes32 => Agreement) private agreements;
+  mapping(uint256 => Agreement) private agreements;
+  uint256 public numberOfAgreements;
   mapping(address => uint256) public pendingWithdrawals;
   Agreement[] public pastAgreements;
 
@@ -45,7 +46,7 @@ contract Broke {
     validSuperTokens = _validSuperTokens;
   }
 
-  function getAgreement(bytes32 id) external view returns (Agreement memory) {
+  function getAgreement(uint256 id) external view returns (Agreement memory) {
     return agreements[id];
   }
 
@@ -57,7 +58,7 @@ contract Broke {
   /// @param _price the total price for which they want to sell it.
   /// @param _length the total length in seconds of the agreement.
   /// @param _deposit the deposit the seller expects from the buyer in wei.
-  /// @return the bytes32 hash identifier of the agreement.
+  /// @return the id of the agreement
   /// TODO: use correct token type
   function createAgreement(
     address _nftAddress,
@@ -66,7 +67,7 @@ contract Broke {
     uint96 _price,
     uint96 _length,
     uint256 _deposit
-  ) external returns (bytes32) {
+  ) external returns (uint256) {
     require(
       isSuperTokenAddress(_superfluidTokenAddress),
       "superfluidTokenAddress is not a valid super token address"
@@ -90,18 +91,17 @@ contract Broke {
       createdAt: block.timestamp,
       endDate: 0
     });
-    bytes32 agreementHash = keccak256(
-      abi.encode(agreement.seller, agreement.nftAddress, agreement.tokenID)
-    );
-    agreements[agreementHash] = agreement;
-    return agreementHash;
+    uint256 id = numberOfAgreements;
+    numberOfAgreements = id + 1;
+    agreements[id] = agreement;
+    return id;
   }
 
   /// @notice accepts an existing agreement and starts a stream
   /// from the buyer to the seller
   /// @dev verifies that the seller still owns the item
   /// @param id the ID of the agreement they want to accept
-  function acceptAgreement(bytes32 id) external payable {
+  function acceptAgreement(uint256 id) external payable {
     Agreement storage agreement = agreements[id];
     require(
       isAgreementAcceptable(id),
@@ -139,7 +139,7 @@ contract Broke {
   /// Allows buyer to retrieve token if the debt was fully paid off. Also closes the stream
   /// automatically after the buyer retrieved the token.
   /// @param id the ID of the agreement
-  function retrieveToken(bytes32 id) external {
+  function retrieveToken(uint256 id) external {
     // we could use a modifier to only allow the buyer and seller to call the function.
     // But, then we would have to still sepearte between seller and buyer
     // since both take a different path. Thus, using a modifier is gas waste here.
@@ -153,7 +153,7 @@ contract Broke {
     }
   }
 
-  function buyerRetrieveToken(Agreement memory agreement, bytes32 id) private {
+  function buyerRetrieveToken(Agreement memory agreement, uint256 id) private {
     // the buyer can only retrieve the token if the block's timestamp is
     // after the agreement's endDate
     if (block.timestamp > agreement.endDate) {
@@ -161,7 +161,7 @@ contract Broke {
     }
   }
 
-  function sellerRetrieveToken(Agreement memory agreement, bytes32 id) private {
+  function sellerRetrieveToken(Agreement memory agreement, uint256 id) private {
     // if the agreement wasn't accepted by anybody yet,
     // the seller can simply take away the contract's approval
     // to transfer the token from their wallet.
@@ -213,7 +213,7 @@ contract Broke {
   /// contract is approved to transfer the NFT from the seller.
   /// @param id the agreement we check
   /// @return bool
-  function isAgreementAcceptable(bytes32 id) public view returns (bool) {
+  function isAgreementAcceptable(uint256 id) public view returns (bool) {
     Agreement memory agreement = agreements[id];
     IERC721 nft = IERC721(agreement.nftAddress);
     if (
@@ -229,7 +229,7 @@ contract Broke {
   /// so we don't have to read from storage again.
   /// @param id the ID of the agreement
   /// @return (uint256, int96, uint256, uint256) the flow data
-  function getFlow(bytes32 id)
+  function getFlow(uint256 id)
     external
     view
     returns (
@@ -244,7 +244,7 @@ contract Broke {
   }
 
   function hasCorrectAgreementData(
-    bytes32 agreementID,
+    uint256 agreementID,
     address superToken,
     int96 flowRate,
     uint96 deposit
@@ -260,7 +260,7 @@ contract Broke {
   function endAgreement(
     Agreement memory agreement,
     address to,
-    bytes32 id
+    uint256 id
   ) private {
     // we delete the agreement from the mapping of currently active agreements.
     // Thus, neither the buyer nor seller can call "retrieveToken()" twice.

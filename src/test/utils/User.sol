@@ -33,7 +33,7 @@ contract User {
     uint96 _price,
     uint96 _length,
     uint256 _deposit
-  ) public returns (bytes32) {
+  ) public returns (uint256) {
     return
       broke.createAgreement(
         _nftAddress,
@@ -95,12 +95,12 @@ contract User {
     );
   }
 
-  function acceptAgreement(bytes32 hash) public payable {
-    return broke.acceptAgreement{value: msg.value}(hash);
+  function acceptAgreement(uint256 id) public payable {
+    return broke.acceptAgreement{value: msg.value}(id);
   }
 
-  function retrieveToken(bytes32 hash) public {
-    return broke.retrieveToken(hash);
+  function retrieveToken(uint256 id) public {
+    return broke.retrieveToken(id);
   }
 
   function withdrawDeposit() public {

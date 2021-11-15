@@ -55,7 +55,7 @@ contract CreateAgreement is BrokeTest {
 
   function test_valid() public {
     alice.approve(address(broke), 1);
-    bytes32 hash = alice.createAgreement(
+    uint256 id = alice.createAgreement(
       address(erc721Mock),
       1,
       SuperDAIAddress,
@@ -63,7 +63,7 @@ contract CreateAgreement is BrokeTest {
       86400,
       6000000
     );
-    Agreement memory got = broke.getAgreement(hash);
+    Agreement memory got = broke.getAgreement(id);
     Agreement memory want = Agreement({
       buyer: address(0),
       seller: address(alice),
@@ -83,13 +83,13 @@ contract CreateAgreement is BrokeTest {
 contract GetFlow is BrokeTest {
   uint96 private price;
   uint96 private length;
-  bytes32 private hash;
+  uint256 private id;
 
   function setupAgreement() private {
     bob.approve(address(broke), 1);
     price = 1 * 1e18;
     length = 86400; // 1 day
-    hash = bob.createAgreement(
+    id = bob.createAgreement(
       address(erc721Mock),
       1,
       SuperDAIAddress,
@@ -102,8 +102,8 @@ contract GetFlow is BrokeTest {
   function test_shouldReturnFlowData() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
-    (uint256 ts, int96 flowRate, , ) = broke.getFlow(hash);
+    alice.acceptAgreement{value: 100}(id);
+    (uint256 ts, int96 flowRate, , ) = broke.getFlow(id);
 
     // we don't specify the deposit here so we don't check for that.
     assertEq(ts, block.timestamp);
@@ -114,13 +114,13 @@ contract GetFlow is BrokeTest {
 contract AcceptAgreement is BrokeTest {
   uint96 private price;
   uint96 private length;
-  bytes32 private hash;
+  uint256 private id;
 
   function setupAgreement() private {
     bob.approve(address(broke), 1);
     price = 1 * 1e18;
     length = 86400; // 1 day
-    hash = bob.createAgreement(
+    id = bob.createAgreement(
       address(erc721Mock),
       1,
       SuperDAIAddress,
@@ -133,7 +133,7 @@ contract AcceptAgreement is BrokeTest {
   function test_valid() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
   }
 
   function testFail_alreadyAccepted() public {
@@ -143,19 +143,19 @@ contract AcceptAgreement is BrokeTest {
     // it's not the one failing. If it fails we catch and log it
     // The function doesn't revert so the test should fail becasue
     // we use testFail.
-    try alice.acceptAgreement{value: 100}(hash) {} catch Error(string memory) {
+    try alice.acceptAgreement{value: 100}(id) {} catch Error(string memory) {
       emit log("Error: first call to accept agreement failed");
       return;
     }
     // first one should be successful, this one not.
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
   }
 }
 
 contract SellerRetrieveToken is BrokeTest {
   uint96 private price;
   uint96 private length;
-  bytes32 private hash;
+  uint256 private id;
   uint256 private tokenID;
 
   function setupAgreement() private {
@@ -163,7 +163,7 @@ contract SellerRetrieveToken is BrokeTest {
     price = 1 * 1e18;
     length = 86400; // 1 day
     tokenID = 1;
-    hash = bob.createAgreement(
+    id = bob.createAgreement(
       address(erc721Mock),
       tokenID,
       SuperDAIAddress,
@@ -176,11 +176,11 @@ contract SellerRetrieveToken is BrokeTest {
   function test_cannotGetFlowData() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
 
     // alice deletes the flow
     alice.deleteFlow(SuperDAIAddress, address(bob));
-    bob.retrieveToken(hash);
+    bob.retrieveToken(id);
 
     assertEq(erc721Mock.ownerOf(tokenID), address(bob));
   }
@@ -188,11 +188,11 @@ contract SellerRetrieveToken is BrokeTest {
   function test_flowRateChanged() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
 
     // buyer updates flowRate in the middle of the agreement
     alice.updateFlow(SuperDAIAddress, address(bob), 1);
-    bob.retrieveToken(hash);
+    bob.retrieveToken(id);
 
     assertEq(erc721Mock.ownerOf(tokenID), address(bob));
   }
@@ -200,12 +200,12 @@ contract SellerRetrieveToken is BrokeTest {
   function test_flowTimestampDoesNotMatch() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
 
     // buyer modifies the initial flow in any way => timestamp shouldn't match
     hevm.warp(block.timestamp + 1);
     alice.updateFlow(SuperDAIAddress, address(bob), int96(price / length));
-    bob.retrieveToken(hash);
+    bob.retrieveToken(id);
 
     assertEq(erc721Mock.ownerOf(tokenID), address(bob));
   }
@@ -213,11 +213,11 @@ contract SellerRetrieveToken is BrokeTest {
   function test_canWithdrawDeposit() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
 
     // alice deletes the flow
     alice.updateFlow(SuperDAIAddress, address(bob), 1);
-    bob.retrieveToken(hash);
+    bob.retrieveToken(id);
 
     bob.withdrawDeposit();
     assertEq(broke.pendingWithdrawals(address(bob)), 0);
@@ -227,11 +227,11 @@ contract SellerRetrieveToken is BrokeTest {
   function testFail_cannotWithdrawTwice() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
 
     // alice deletes the flow
     alice.updateFlow(SuperDAIAddress, address(bob), 1);
-    bob.retrieveToken(hash);
+    bob.retrieveToken(id);
 
     bob.withdrawDeposit();
     assertEq(broke.pendingWithdrawals(address(bob)), 0);
@@ -243,36 +243,36 @@ contract SellerRetrieveToken is BrokeTest {
   function testFail_cannotRetrieveTwice() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
 
     // alice deletes the flow
     alice.updateFlow(SuperDAIAddress, address(bob), 1);
-    bob.retrieveToken(hash);
+    bob.retrieveToken(id);
     assertEq(erc721Mock.ownerOf(tokenID), address(bob));
 
-    bob.retrieveToken(hash);
+    bob.retrieveToken(id);
   }
 
   function testFail_flowAndAgreementValid() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
 
-    bob.retrieveToken(hash);
+    bob.retrieveToken(id);
     assertEq(erc721Mock.ownerOf(tokenID), address(broke));
   }
 
   function testFail_agreementOver() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
     // set block timestamp after the end date
     hevm.warp(block.timestamp + length + 1);
     // delete flow since it was paid off.
     alice.deleteFlow(SuperDAIAddress, address(bob));
 
     // bob shouldn't be able to retrieve his token.
-    bob.retrieveToken(hash);
+    bob.retrieveToken(id);
     assertEq(erc721Mock.ownerOf(tokenID), address(broke));
   }
 }
@@ -280,7 +280,7 @@ contract SellerRetrieveToken is BrokeTest {
 contract BuyerRetrieveToken is BrokeTest {
   uint96 private price;
   uint96 private length;
-  bytes32 private hash;
+  uint256 private id;
   uint256 private tokenID;
 
   function setupAgreement() private {
@@ -288,7 +288,7 @@ contract BuyerRetrieveToken is BrokeTest {
     price = 1 * 1e18;
     length = 86400; // 1 day
     tokenID = 1;
-    hash = bob.createAgreement(
+    id = bob.createAgreement(
       address(erc721Mock),
       tokenID,
       SuperDAIAddress,
@@ -301,33 +301,33 @@ contract BuyerRetrieveToken is BrokeTest {
   function test_blockAfterEndDate() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
 
     // set block timestamp after the end date
     hevm.warp(block.timestamp + length + 1);
 
-    alice.retrieveToken(hash);
+    alice.retrieveToken(id);
     assertEq(erc721Mock.ownerOf(tokenID), address(alice));
   }
 
   function testFail_cannotRetrieveBeforeEndDate() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
 
-    alice.retrieveToken(hash);
+    alice.retrieveToken(id);
     assertEq(erc721Mock.ownerOf(tokenID), address(alice));
   }
 
   function test_canWithdrawDeposit() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
 
     // set block timestamp after the end date
     hevm.warp(block.timestamp + length + 1);
 
-    alice.retrieveToken(hash);
+    alice.retrieveToken(id);
 
     alice.withdrawDeposit();
     assertEq(broke.pendingWithdrawals(address(alice)), 0);
@@ -337,12 +337,12 @@ contract BuyerRetrieveToken is BrokeTest {
   function testFail_cannotWithdrawTwice() public {
     setupAgreement();
     alice.createFlow(SuperDAIAddress, address(bob), int96(price / length));
-    alice.acceptAgreement{value: 100}(hash);
+    alice.acceptAgreement{value: 100}(id);
 
     // set block timestamp after the end date
     hevm.warp(block.timestamp + length + 1);
 
-    alice.retrieveToken(hash);
+    alice.retrieveToken(id);
 
     alice.withdrawDeposit();
     assertEq(broke.pendingWithdrawals(address(alice)), 0);
