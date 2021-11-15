@@ -217,12 +217,12 @@ contract Broke {
     Agreement memory agreement = agreements[id];
     IERC721 nft = IERC721(agreement.nftAddress);
     if (
-      agreement.buyer != address(0) ||
-      nft.getApproved(agreement.tokenID) != address(this)
+      agreement.buyer == address(0) &&
+      nft.getApproved(agreement.tokenID) == address(this)
     ) {
-      return false;
+      return true;
     }
-    return true;
+    return false;
   }
 
   /// @dev pass the agreement instead of the ID
