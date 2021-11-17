@@ -14,14 +14,13 @@ The basic scenario is:
 1. Seller aproves `Broke` to retrieve the token from their wallet.
 2. Seller creates an agreement using `Broke` and receives the ID of the agreement.
 3. Seller shares the ID with potential buyers.
-4. Buyer creates a Superfluid stream to the seller's wallet with the flow rate
-specified in the agreement.
-5. Buyer calls `Broke` to accept the agreement and sends the deposit.
-6. `Broke` retrieves NFT from seller.
-7. After the token was paid off buyer ends Superfluid stream.
-8. Buyer withdraws NFT and deposit from the contract.
-
-Built for ETHGlobal 2021.
+4. Buyer accepts agreement by paying the deposit set by the seller. The contract locks
+the seller's token and sets a 1 hour time limit for the buyer to start streaming the funds.
+5. Buyer creates a Superfluid stream to the `Broke` contract. `Broke` contract uses the 
+Superfluid hooks to start a stream with the same parameters to the Seller.
+6. After the token was paid off buyer ends Superfluid stream. `Broke` coontract uses the hooks to
+also stop the stream to the seller.
+7. Buyer withdraws NFT and deposit from the contract.
 
 ## API
 
@@ -48,9 +47,23 @@ stream the buyer has to start to accept the agreement.
 
 ### Accept an Agreement
 
-To be able to accept an agreement you have to first start a Superfluid flow to
-the seller's wallet. The flowrate has to be equal to the one specified by
-the seller.
+To accept the agreement you call the `acceptAgreement(uint)` function where you pass
+the agreement ID and send the deposit.
+
+After that, the contract will lock up the seller's token and set an one hour time limit
+for you to start streaming the funds to the `Broke` contract.
+
+If you don't do it within the timelimt, the seller is able to get back their token
+and is rewarded your deposit.
+
+#### Starting the Agreement
+
+To start the agreement you have to start a Superfluid stream to the `Broke` contract.
+The stream has to have the flowrate specified in the agreement. You also have to pass the agreement
+ID in the userData section of the stream context. The contract will react to you creating
+the stream through a hook and start a stream with the same values to the seller.
+
+After that, the agreement officially started.
 
 Broke expects all the values to be in WEI while Superfluid seems to use Ether.
 Here's an example on how to figure out the correct flow rate:
@@ -67,17 +80,13 @@ flowrate = 1000 / 1e18 / 300 # per second
 superfluid = flowrate * 60**2
 ```
 
-After that you can call the `acceptAgreement(bytes32)` function which is payable.
-You have to send the deposit the seller specified.
-The function accepts the agreement ID to be parsed as the first parameter.
-
-After the agreement was accepted you're supposed to not modify the Superfluid stream
+After the stream was started you're supposed to not modify it 
 until the endDate is reached. Else, the seller is able to end the agreement
 take their token as well as your deposit.
 
 ### Retrieving the Token
 
-Call `retrieveToken(bytes32 agreementID)` to withdraw the NFT from the contract.
+Call `retrieveToken(uint agreementID)` to withdraw the NFT from the contract.
 
 Seller and buyer have different scenarios in which they are elible to withdraw.
 
